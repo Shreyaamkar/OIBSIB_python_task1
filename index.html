@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Weather App — Frontend</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#60a5fa;--muted:#94a3b8;--glass:rgba(255,255,255,0.03)}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;background:linear-gradient(180deg,#071428 0%, #071A2B 60%);color:#e6eef8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{width:100%;max-width:720px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:14px;padding:20px;box-shadow:0 10px 30px rgba(2,6,23,0.6);backdrop-filter: blur(6px);}
+    header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+    .logo{width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#7dd3fc);display:flex;align-items:center;justify-content:center;font-weight:700;color:#04263b}
+    h1{font-size:20px;margin:0}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+
+    .controls{display:flex;gap:8px;margin-top:16px}
+    .controls input[type="text"]{flex:1;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:var(--glass);color:inherit;font-size:14px}
+    .controls button{padding:12px 16px;border-radius:10px;border:0;background:var(--accent);color:#04263b;font-weight:600;cursor:pointer}
+    .controls button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+
+    .grid{display:grid;grid-template-columns:1fr 220px;gap:18px;margin-top:18px}
+    .main{padding:18px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01));min-height:160px}
+    .side{padding:18px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));min-height:160px}
+
+    .big-temp{font-size:44px;font-weight:700;margin:6px 0}
+    .small{color:var(--muted);font-size:13px}
+    .meta{display:flex;gap:12px;align-items:center}
+
+    .icon{width:96px;height:96px;background:rgba(255,255,255,0.02);border-radius:12px;display:flex;align-items:center;justify-content:center}
+    .info-row{display:flex;justify-content:space-between;padding:8px 0;border-top:1px dashed rgba(255,255,255,0.02)}
+    .muted{color:var(--muted);font-size:13px}
+
+    .loading{opacity:0.9;color:var(--muted)}
+    .error{color:#ff6b6b;background:rgba(255,107,107,0.06);padding:8px;border-radius:8px;margin-top:10px}
+
+    footer{margin-top:14px;color:var(--muted);font-size:12px;text-align:center}
+
+    @media (max-width:700px){.grid{grid-template-columns:1fr}.side{order:2}.controls{flex-direction:column}.controls button{width:100%}}
+  </style>
+</head>
+<body>
+  <div class="card" role="application">
+    <header>
+      <div class="logo">W</div>
+      <div>
+        <h1>Weather App</h1>
+        <p class="lead">Get current weather by city. Shows temperature, humidity and conditions.</p>
+      </div>
+    </header>
+
+    <div class="controls">
+      <input id="cityInput" type="text" placeholder="Enter city name (e.g. London)" aria-label="City name" />
+      <button id="searchBtn">Search</button>
+      <button id="myLocationBtn" class="secondary">Use My Location</button>
+    </div>
+
+    <div id="msg" role="status" aria-live="polite"></div>
+
+    <div class="grid">
+      <div class="main" id="mainPanel">
+        <div id="emptyState">
+          <p class="muted">No data yet — search a city or use your location.</p>
+        </div>
+
+        <div id="weatherCard" style="display:none">
+          <div class="meta">
+            <div>
+              <div id="place" style="font-weight:700;font-size:16px"></div>
+              <div id="cond" class="muted"></div>
+            </div>
+            <div style="margin-left:auto;text-align:right">
+              <div id="temp" class="big-temp">--°C</div>
+              <div id="feels" class="muted"></div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:12px;margin-top:12px;align-items:center">
+            <div class="icon" id="iconHolder">
+              <!-- icon injected here -->
+            </div>
+            <div style="flex:1">
+              <div class="info-row"><div class="muted">Humidity</div><div id="humidity">--%</div></div>
+              <div class="info-row"><div class="muted">Wind</div><div id="wind">-- m/s</div></div>
+              <div class="info-row"><div class="muted">Pressure</div><div id="pressure">-- hPa</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="side">
+        <h3 style="margin:0 0 8px 0">Quick Actions</h3>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button id="openYoutube" class="secondary">Open YouTube</button>
+          <button id="openGoogle" class="secondary">Open Google</button>
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="muted">Last query</div>
+          <div id="lastQuery" style="font-weight:600">—</div>
+        </div>
+      </aside>
+    </div>
+
+    <footer>
+      This frontend expects a backend endpoint at <code>/weather?city=CityName</code> that returns JSON.
+    </footer>
+  </div>
+
+  <script>
+    // ======= Frontend logic =======
+    const cityInput = document.getElementById('cityInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const myLocationBtn = document.getElementById('myLocationBtn');
+    const msg = document.getElementById('msg');
+    const weatherCard = document.getElementById('weatherCard');
+    const emptyState = document.getElementById('emptyState');
+    const place = document.getElementById('place');
+    const cond = document.getElementById('cond');
+    const temp = document.getElementById('temp');
+    const feels = document.getElementById('feels');
+    const humidity = document.getElementById('humidity');
+    const wind = document.getElementById('wind');
+    const pressure = document.getElementById('pressure');
+    const iconHolder = document.getElementById('iconHolder');
+    const lastQuery = document.getElementById('lastQuery');
+    const openYoutube = document.getElementById('openYoutube');
+    const openGoogle = document.getElementById('openGoogle');
+
+    // Helper: show messages
+    function showMessage(text, type='info'){
+      msg.innerHTML = '';
+      const el = document.createElement('div');
+      el.textContent = text;
+      if(type === 'error') el.className = 'error'; else el.className = 'loading';
+      msg.appendChild(el);
+    }
+
+    function clearMessage(){ msg.innerHTML = ''; }
+
+    async function fetchWeatherByCity(city){
+      clearMessage();
+      showMessage('Loading weather for ' + city + '...');
+      lastQuery.textContent = city;
+
+      try{
+        // This frontend expects a server endpoint at /weather that proxies to a real API
+        const res = await fetch(`/weather?city=${encodeURIComponent(city)}`);
+        if(!res.ok){
+          const txt = await res.text();
+          showMessage('Server error: ' + res.status + ' - ' + txt, 'error');
+          return;
+        }
+        const data = await res.json();
+
+        // expected structure from backend:
+        // { name, country, temp, feels_like, humidity, wind_speed, pressure, description, icon }
+        if(data.error){
+          showMessage(data.error, 'error');
+          return;
+        }
+
+        renderWeather(data);
+        clearMessage();
+      }catch(err){
+        showMessage('Network error or server not reachable.', 'error');
+        console.error(err);
+      }
+    }
+
+    function renderWeather(d){
+      emptyState.style.display = 'none';
+      weatherCard.style.display = 'block';
+      place.textContent = `${d.name}, ${d.country}`;
+      cond.textContent = d.description;
+      temp.textContent = Math.round(d.temp) + '°C';
+      feels.textContent = 'Feels like ' + Math.round(d.feels_like) + '°C';
+      humidity.textContent = d.humidity + '%';
+      wind.textContent = (d.wind_speed ?? '--') + ' m/s';
+      pressure.textContent = (d.pressure ?? '--') + ' hPa';
+
+      // icon (if provided as OpenWeather icon code)
+      iconHolder.innerHTML = '';
+      if(d.icon){
+        const img = document.createElement('img');
+        img.src = `https://openweathermap.org/img/wn/${d.icon}@2x.png`;
+        img.alt = d.description;
+        img.width = 72; img.height = 72;
+        iconHolder.appendChild(img);
+      } else {
+        iconHolder.textContent = d.description.charAt(0).toUpperCase();
+      }
+    }
+
+    // Events
+    searchBtn.addEventListener('click', ()=>{
+      const city = cityInput.value.trim();
+      if(!city){ showMessage('Please enter a city name.', 'error'); return; }
+      fetchWeatherByCity(city);
+    });
+
+    cityInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') searchBtn.click(); });
+
+    myLocationBtn.addEventListener('click', ()=>{
+      if(!navigator.geolocation){ showMessage('Geolocation not supported in this browser.', 'error'); return; }
+      showMessage('Detecting your location...');
+      navigator.geolocation.getCurrentPosition(async (pos)=>{
+        clearMessage();
+        const {latitude, longitude} = pos.coords;
+        try{
+          const res = await fetch(`/weather?lat=${latitude}&lon=${longitude}`);
+          if(!res.ok){ showMessage('Server error getting location weather', 'error'); return; }
+          const data = await res.json();
+          if(data.error){ showMessage(data.error, 'error'); return; }
+          renderWeather(data);
+        }catch(e){ showMessage('Unable to fetch weather for your location.', 'error'); }
+      }, (err)=>{ showMessage('Could not get location: ' + err.message, 'error'); });
+    });
+
+    openYoutube.addEventListener('click', ()=> window.open('https://www.youtube.com','_blank'));
+    openGoogle.addEventListener('click', ()=> window.open('https://www.google.com','_blank'));
+
+    // small helper: prefill with user's city using IP-based geolocation (optional)
+    (async function tryPrefill(){
+      try{
+        const res = await fetch('https://ipapi.co/json/');
+        if(!res.ok) return;
+        const info = await res.json();
+        if(info && info.city) cityInput.value = info.city;
+      }catch(e){ /* ignore network errors */ }
+    })();
+  </script>
+</body>
+</html>
